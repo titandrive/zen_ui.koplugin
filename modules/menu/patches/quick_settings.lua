@@ -978,8 +978,42 @@ local function apply_quick_settings()
         end
     end
 
+    local function install_external_control_defs()
+        local controls = rawget(_G, "__ZEN_UI_EXTERNAL_CONTROLS")
+        if type(controls) ~= "table" then return end
+        for id, control in pairs(controls) do
+            if type(id) == "string" and type(control) == "table"
+                    and type(control.label) == "string"
+                    and type(control.action) == "table" then
+                if config.show_buttons[id] == nil then
+                    config.show_buttons[id] = false
+                end
+                button_defs[id] = {
+                    icon = control.icon or "lightning",
+                    icon_func = control.icon_func,
+                    label = control.label,
+                    active_func = type(control.active_func) == "function"
+                        and control.active_func
+                        or function()
+                            return DispatchAction.isActionActive(
+                                control.action, zen_plugin)
+                        end,
+                    callback = function(tm)
+                        tm:closeMenu()
+                        if type(control.callback) == "function" then
+                            control.callback()
+                        else
+                            Dispatcher:execute(control.action)
+                        end
+                    end,
+                }
+            end
+        end
+    end
+
     local function quick_setting_items()
         install_custom_button_defs()
+        install_external_control_defs()
         local items = {}
         for _i, id in ipairs(config.button_order or {}) do
             local def = button_defs[id]
@@ -1036,22 +1070,26 @@ local function apply_quick_settings()
         getSettingsItems = quick_setting_config_items,
         has = function(id)
             install_custom_button_defs()
+            install_external_control_defs()
             local def = button_defs[id]
             return def ~= nil and (not def.visible_func or def.visible_func())
         end,
         isActive = function(id)
             install_custom_button_defs()
+            install_external_control_defs()
             local def = button_defs[id]
             return def and (not def.disabled_func or not def.disabled_func())
                 and def.active_func and def.active_func() or false
         end,
         isDisabled = function(id)
             install_custom_button_defs()
+            install_external_control_defs()
             local def = button_defs[id]
             return def and def.disabled_func and def.disabled_func() or false
         end,
         activate = function(id, touch_menu)
             install_custom_button_defs()
+            install_external_control_defs()
             local def = button_defs[id]
             if not def or (def.visible_func and not def.visible_func()) then return false end
             local host = touch_menu or {
@@ -1094,6 +1132,7 @@ local function apply_quick_settings()
 
         -- Custom definitions are rebuilt on every render so edits are immediate.
         install_custom_button_defs()
+        install_external_control_defs()
 
         local visible_buttons = {}
         for _i, id in ipairs(config.button_order) do
@@ -1116,7 +1155,12 @@ local function apply_quick_settings()
         local normal_border = Screen:scaleBySize(2)
 
         local function makeActionButton(icon_name, label_text, active, dim)
-            local icon_path = _icons_dir and utils.resolveIcon(_icons_dir, icon_name)
+            local icon_path
+            if type(icon_name) == "string" and icon_name:sub(1, 1) == "/" then
+                icon_path = icon_name
+            else
+                icon_path = _icons_dir and utils.resolveIcon(_icons_dir, icon_name)
+            end
             local icon = IconWidget:new{
                 file   = icon_path or nil,
                 icon   = icon_path and nil or icon_name,
@@ -1196,8 +1240,9 @@ local function apply_quick_settings()
                 end
                 local active   = def.active_func   and def.active_func()   or false
                 local disabled = def.disabled_func and def.disabled_func() or false
+                local icon_name = def.icon_func and def.icon_func() or def.icon
                 -- Disabled takes priority: don't show active styling on a greyed-out button.
-                local btn_widget, btn_circle = makeActionButton(def.icon, label_text, active and not disabled, disabled)
+                local btn_widget, btn_circle = makeActionButton(icon_name, label_text, active and not disabled, disabled)
 
                 table.insert(refs.buttons, {
                     widget = btn_circle,

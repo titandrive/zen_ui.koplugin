@@ -178,6 +178,21 @@ function ZenUI:init()
     end
     i18n.install()  -- reinstall after any context-switch uninstall (onCloseWidget removes it)
     self.config = ConfigManager.load()
+    local external_controls = rawget(_G, "__ZEN_UI_EXTERNAL_CONTROLS")
+    if type(external_controls) ~= "table" then
+        external_controls = {}
+        rawset(_G, "__ZEN_UI_EXTERNAL_CONTROLS", external_controls)
+    end
+    rawset(_G, "__ZEN_UI_REGISTER_CONTROL", function(id, definition)
+        if type(id) ~= "string" or id == ""
+                or type(definition) ~= "table"
+                or type(definition.label) ~= "string"
+                or type(definition.action) ~= "table" then
+            return false
+        end
+        external_controls[id] = definition
+        return true
+    end)
     if _plugin_root then
         require("common/utils").copyDefaultCustomTabIcon(
             _plugin_root .. "/icons/", self.config and self.config.navbar)

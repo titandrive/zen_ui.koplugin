@@ -90,6 +90,23 @@ function M.build(ctx)
         { key = "screenshot",     text = _("Screenshot") },
     }
 
+    local external_controls = rawget(_G, "__ZEN_UI_EXTERNAL_CONTROLS")
+    if type(external_controls) == "table" then
+        for id, control in pairs(external_controls) do
+            if type(id) == "string" and type(control) == "table"
+                    and type(control.label) == "string"
+                    and type(control.action) == "table" then
+                quick_button_items[#quick_button_items + 1] = {
+                    key = id,
+                    text = control.label,
+                }
+                if config.quick_settings.show_buttons[id] == nil then
+                    config.quick_settings.show_buttons[id] = false
+                end
+            end
+        end
+    end
+
     -- Remove any button whose plugin/feature is not detected.
     do
         local filtered = {}
